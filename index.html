@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Wayfarer — Travel That Feels Different</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#fbfaf7;color:#1c1917}
+.font-display{font-family:'Fraunces',serif;font-weight:600;letter-spacing:-0.02em}
+.hero-bg{background:linear-gradient(180deg,#f4f1ea 0%,#fbfaf7 100%)}
+.card-hover{transition:transform .25s ease,box-shadow .25s ease}
+.card-hover:hover{transform:translateY(-6px);box-shadow:0 20px 50px -10px rgba(28,25,23,.18)}
+.nav-link{position:relative}
+.nav-link::after{content:'';position:absolute;left:0;bottom:-4px;width:0;height:1.5px;background:#0f766e;transition:width .25s ease}
+.nav-link:hover::after{width:100%}
+.accent-bg{background:#0f766e}
+.accent-text{color:#0f766e}
+.tour-badge{backdrop-filter:blur(8px);background:rgba(255,255,255,.85)}
+input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.5}
+</style>
+</head>
+<body><script>
+/* ── Lovable Navigation Guarantor v10 ─────────────────────────────────────── */
+(function () {
+  document.addEventListener('submit', function (e) { e.preventDefault(); }, true);
+
+  var _lv_authed = false;
+
+  function isAuthPage(name) {
+    var n = (name || '').toLowerCase();
+    return n.includes('login') || n.includes('auth') || n.includes('signin') || n === 'sign-in';
+  }
+  function isHidden(el) {
+    if (!el) return true;
+    var s = window.getComputedStyle(el);
+    return s.display === 'none' || s.visibility === 'hidden' || el.classList.contains('hidden');
+  }
+  function showEl(el) {
+    el.classList.remove('hidden');
+    el.style.display = '';
+    if (window.getComputedStyle(el).display === 'none') el.style.display = 'block';
+    /* Re-render Chart.js charts that initialised while this section was display:none */
+    setTimeout(function() {
+      var base = (el.id || '').replace(/[-_](section|page|tab|content|panel)$/i, '');
+      if (base) {
+        var cap = base.charAt(0).toUpperCase() + base.slice(1);
+        var fn = window['render' + cap];
+        if (typeof fn === 'function') { try { fn(); } catch(e) {} }
+      }
+      if (window.Chart) {
+        el.querySelectorAll('canvas').forEach(function(c) {
+          var ch = Chart.getChart(c);
+          if (ch) { try { ch.resize(); ch.update('none'); } catch(e) {} }
+        });
+      }
+    }, 50);
+  }
+  function hideEl(el) {
+    el.classList.add('hidden');
+    el.style.display = 'none';
+  }
+
+  function findPanel(name) {
+    var n = (name || '').toLowerCase().replace(/\s+/g,'-');
+    var ids = ['tab-'+n,'page-'+n,'section-'+n,'content-'+n,n,n+'-tab',n+'-panel',n+'-content',n+'-section',n+'-page'];
+    for (var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(el) return el; }
+    var all=document.querySelectorAll('[id]');
+    var firstMatch=null;
+    for (var j=0;j<all.length;j++){
+      var el=all[j];
+      if(el.tagName==='BUTTON'||el.children.length===0) continue;
+      var id=el.id.toLowerCase();
+      var idH=id.replace(/([a-z])([A-Z])/g,'<body>-$2').toLowerCase();
+      var isPrefix=idH.startsWith(n+'-')||idH===n||id.startsWith(n+'-')||id===n;
+      var isSuffix=idH.endsWith('-'+n)||id.endsWith('-'+n);
+      if(!isPrefix&&!isSuffix) continue;
+      if(!firstMatch) firstMatch=el;
+      var par=el.parentElement;
+      if(par&&Array.from(par.children).some(function(c){return c!==el&&c.id&&c.tagName!=='BUTTON';})){
+        return el;
+      }
+    }
+    return firstMatch;
+  }
+
+  function getPanels(target) {
+    var p=document.querySelectorAll('.lv-panel,.tab-panel,.content-panel');
+    if(p.length) return Array.from(p);
+    var prefix=target.id.replace(/[a-zA-Z0-9]+$/,'');
+    if(prefix&&prefix.length>1){
+      var byPrefix=Array.from(document.querySelectorAll('[id^="'+prefix+'"]'));
+      if(byPrefix.length>1) return byPrefix;
+    }
+    var par=target.parentElement;
+    var depth=0;
+    while(par&&par!==document.body&&depth<5){
+      depth++;
+      var kids=Array.from(par.children).filter(function(c){
+        var skip=['BUTTON','NAV','ASIDE','HEADER','FOOTER','SCRIPT','STYLE'];
+        return c.id&&skip.indexOf(c.tagName)===-1&&c.children.length>0;
+      });
+      if(kids.length>1) return kids;
+      par=par.parentElement;
+    }
+    return [];
+  }
+
+  /* ── _guardSwitch: stored in CLOSURE — the model can never overwrite this reference ── */
+  function _guardSwitch(name, callerBtn) {
+    if (_lv_authed && isAuthPage(name)) return;
+    var target = findPanel(name);
+    if (!target) return;
+    if (_lv_authed && isAuthPage(target.id || '')) return;
+    getPanels(target).forEach(hideEl);
+    showEl(target);
+    /* Update active state on sidebar buttons with data-lv-tab */
+    document.querySelectorAll('[data-lv-tab]').forEach(function(b){
+      var active = b.getAttribute('data-lv-tab')===name;
+      b.classList.toggle('lv-active', active);
+      b.classList.toggle('bg-blue-50', active);
+      b.classList.toggle('text-blue-600', active);
+      b.classList.toggle('font-semibold', active);
+      b.classList.toggle('text-gray-500', !active);
+      b.classList.remove('bg-white/15','bg-white/12','text-white','text-gray-400');
+    });
+    if (callerBtn) {
+      var par = callerBtn.parentElement;
+      if (par) par.querySelectorAll('button,a,li').forEach(function(b){
+        b.classList.remove('lv-active','bg-blue-50','text-blue-600','font-semibold','bg-white/15','text-white','bg-blue-600','bg-indigo-600');
+        b.classList.add('text-gray-500');
+      });
+      callerBtn.classList.remove('text-gray-500');
+      callerBtn.classList.add('lv-active','bg-blue-50','text-blue-600','font-semibold');
+    }
+  }
+
+  /* window.lvSwitch — public API backed by _guardSwitch */
+  window.lvSwitch = _guardSwitch;
+  window.lvSwitch.__lv_patched = true;
+
+  /* ── GLOBAL CLICK INTERCEPTOR (capture phase) ─────────────────────────────
+     Fires BEFORE any onclick handler. Intercepts lvSwitch/data-lv-tab nav clicks
+     and routes them through _guardSwitch directly — immune to model overwriting
+     window.lvSwitch or defining its own broken navigation functions. */
+  document.addEventListener('click', function(e) {
+    var node = e.target;
+    for (var i=0; i<8 && node && node!==document.body; i++) {
+      if (!node.getAttribute) { node=node.parentElement; continue; }
+      /* Pattern 1: onclick="lvSwitch('tab-name')" or onclick="showPage('name')" etc. */
+      var oc = node.getAttribute('onclick') || '';
+      var m  = oc.match(/(?:lvSwitch|switchTab|showTab|showPage|showSection|activateTab|selectTab|changeTab|navigate|setActiveTab|openTab|setView|setPage|showView|openView|setActiveSection|gotoPage|loadPage|openSection)\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+      /* Pattern 2: data-lv-tab="tab-name" */
+      var lvTab = node.getAttribute('data-lv-tab') || '';
+      var name = (m ? m[1] : lvTab).trim();
+      if (name && !isAuthPage(name)) {
+        var tgt = findPanel(name);
+        if (tgt && !isAuthPage(tgt.id || '')) {
+          /* Intercept: prevent the element's own onclick from running a broken handler */
+          e.stopImmediatePropagation();
+          _guardSwitch(name, node);
+          return;
+        }
+      }
+      node = node.parentElement;
+    }
+  }, true /* capture */);
+
+  /* Alias common nav names for pre-load use */
+  ['switchTab','showTab','showPage','showSection','activateTab','selectTab',
+   'changeTab','navigate','setActiveTab','openTab',
+   'setView','setPage','showView','openView','setActiveSection','gotoPage','loadPage','openSection'].forEach(function(fn){
+    var orig = typeof window[fn]==='function' ? window[fn] : null;
+    window[fn] = function(name){
+      if (_lv_authed && isAuthPage(name)) return;
+      if(orig){ try{ orig(name); }catch(e){} }
+      setTimeout(function(){ var t=findPanel(name); if(t&&isHidden(t)) _guardSwitch(name); }, 80);
+    };
+    window[fn].__lv_patched = true;
+  });
+
+  function wireAll() {
+    /* Panel-app detection: only intercept anchor links when the page explicitly uses
+       .lv-panel / .tab-panel / .content-panel show-hide navigation.
+       On plain scrolling websites (jewellery shops, landing pages, portfolios), every
+       <a href="#section"> link must be left alone so the browser can scroll to it.
+       Intercepting those links (the old behaviour) called e.preventDefault() which
+       silently killed the scroll — leaving the navbar appearing completely broken. */
+    var isPanelApp = document.querySelectorAll('.lv-panel,.tab-panel,.content-panel').length > 0;
+    document.querySelectorAll('button,a,li,[onclick]').forEach(function(btn){
+      if (btn.getAttribute('data-lv-wired')) return;
+      var oc = btn.getAttribute('onclick')||'';
+      var m  = oc.match(/\(\s*['"]([^'"]+)['"]\s*\)/);
+      var name = m ? m[1] : (btn.dataset.lvTab||btn.dataset.tab||btn.dataset.nav||btn.dataset.page||'');
+      if (!name) {
+        /* On non-panel sites never use text-content heuristic to wire <a> links —
+           that is what caused e.preventDefault() to block natural anchor scrolling. */
+        if (btn.tagName==='A' && !isPanelApp) return;
+        var txt=(btn.textContent||btn.innerText||'').replace(/\s+/g,' ').trim();
+        if(txt.length>40) return;
+        name=txt.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+      }
+      if (!name || name.length < 2) return;
+      if (isAuthPage(name)) return;
+      var target = findPanel(name);
+      if (!target) return;
+      if (isAuthPage(target.id || '')) return;
+      /* Final guard: never wire <a> links on non-panel pages even if a section was found */
+      if (btn.tagName==='A' && !isPanelApp) return;
+      btn.setAttribute('data-lv-wired','1');
+      btn.addEventListener('click', function(e){
+        if (btn.tagName==='A'){var h=btn.getAttribute('href')||'';if(h===''||h==='#'||h.startsWith('#')) e.preventDefault();}
+        _guardSwitch(name, btn);
+      });
+    });
+  }
+
+  function initFirstPanel() {
+    if (_lv_authed) return;
+    var panels=document.querySelectorAll('.lv-panel,.tab-panel');
+    if(!panels.length) return;
+    var any=Array.from(panels).some(function(p){return !isHidden(p);});
+    if(!any) showEl(panels[0]);
+  }
+
+  /* ── Re-intercept nav functions at DOMContentLoaded (BEFORE AI's DOMContentLoaded handlers).
+     Because this Guarantor is injected at <body>-open, this listener is registered FIRST.
+     DOMContentLoaded fires listeners in registration order — our wrapper is in place before
+     the AI's DOMContentLoaded handler calls navigate/setView/etc., so crashes are caught. */
+  document.addEventListener('DOMContentLoaded', function(){
+    ['navigate','setView','setPage','showView','openView','setActiveSection','gotoPage',
+     'loadPage','openSection','switchTab','showTab','showPage','showSection',
+     'activateTab','selectTab','changeTab','setActiveTab'].forEach(function(fn){
+      if(typeof window[fn]==='function'&&!window[fn].__lv_patched){
+        var orig=window[fn];
+        window[fn]=function(name){
+          if(_lv_authed&&isAuthPage(name)) return;
+          try{orig.call(this,name);}catch(e){}
+          setTimeout(function(){var t=findPanel(name);if(t&&isHidden(t))_guardSwitch(name);},80);
+        };
+        window[fn].__lv_patched=true;
+      }
+    });
+  });
+
+  window.addEventListener('load', function(){
+    /* ── Restore window.lvSwitch if the model redefined it ── */
+    if (!window.lvSwitch || !window.lvSwitch.__lv_patched) {
+      window.lvSwitch = _guardSwitch;
+      window.lvSwitch.__lv_patched = true;
+    }
+
+    /* ── Re-intercept nav functions the model defined in its own <script> tags ── */
+    ['switchTab','showTab','showPage','showSection','activateTab','selectTab',
+     'changeTab','navigate','setActiveTab','openTab','navigateTo','goTo',
+     'setView','setPage','showView','openView','setActiveSection','gotoPage','loadPage','openSection'].forEach(function(fn){
+      if(typeof window[fn]==='function'&&!window[fn].__lv_patched){
+        var orig=window[fn];
+        window[fn]=function(name){
+          if(_lv_authed&&isAuthPage(name)) return;
+          try{orig.call(this,name);}catch(e){}
+          setTimeout(function(){var t=findPanel(name);if(t&&isHidden(t))_guardSwitch(name);},80);
+        };
+        window[fn].__lv_patched=true;
+      }
+    });
+
+    var passInput=document.querySelector('input[type="password"]');
+    var reqBox=document.querySelector('#password-reqs,.password-reqs,[id*="req-"],[class*="password-req"]');
+    if(reqBox&&passInput){
+      reqBox.style.maxHeight='0';reqBox.style.overflow='hidden';
+      reqBox.style.transition='max-height .35s ease,opacity .35s ease';reqBox.style.opacity='0';
+      passInput.addEventListener('focus',function(){reqBox.style.maxHeight='200px';reqBox.style.opacity='1';});
+    }
+    var emailInput=document.querySelector(
+      'input[type="email"],input[id*="email"],input[id*="user"],input[id*="provider"],'+
+      'input[placeholder*="email" i],input[placeholder*="@"],input[placeholder*="id" i]'
+    );
+
+    /* ── App-shell wrapper IDs the AI generates — must be shown BEFORE inner panels ── */
+    var _SHELL_IDS = ['app-shell','app-wrapper','main-app','app-container','main-container','app-body','app-content','app-layout','main-layout','app-main'];
+
+    function forceNavigate(name){
+      _lv_authed = true;
+      /* 1. Hide all login/auth/signin elements */
+      document.querySelectorAll('[id]').forEach(function(el){
+        var id=el.id.toLowerCase();
+        if((id.includes('login')||id.includes('auth')||id.includes('signin'))&&!id.includes(name)) hideEl(el);
+      });
+      /* 2. Show app-shell / main-app wrappers FIRST so inner panels become visible */
+      _SHELL_IDS.forEach(function(sid){
+        var wrap=document.getElementById(sid);
+        if(wrap&&isHidden(wrap)) showEl(wrap);
+      });
+      /* 3. Show the target panels */
+      var t=document.querySelectorAll('[id*="'+name+'"]');
+      t.forEach(function(el){showEl(el);});
+      /* 4. Fallback: show dashboard/main/home panels and un-hide any hidden ancestors */
+      if(!t.length){
+        var fb=document.querySelector('[id*="dashboard"],[id*="main"],[id*="home"]');
+        if(fb){
+          var anc=fb.parentElement;
+          while(anc&&anc!==document.body){ if(isHidden(anc)) showEl(anc); anc=anc.parentElement; }
+          showEl(fb);
+        }
+      }
+      /* 5. Also un-hide any hidden ancestor of found dashboard panels */
+      document.querySelectorAll('[id*="dashboard"],[id*="main-panel"],[id*="home-panel"]').forEach(function(el){
+        var anc=el.parentElement;
+        while(anc&&anc!==document.body){ if(isHidden(anc)) showEl(anc); anc=anc.parentElement; }
+      });
+      setTimeout(function(){wireAll(); if(typeof renderAll==='function'){ try{renderAll();}catch(e){} }},200);
+    }
+
+    document.querySelectorAll('button').forEach(function(btn){
+      var txt=(btn.textContent||'').toLowerCase().trim();
+      if(!txt.match(/sign.?in|log.?in|continue|next|get.?start|access|enter/)) return;
+      btn.addEventListener('click',function(){
+        setTimeout(function(){
+          /* Check if app shell or dashboard is now visible — login handler ran correctly */
+          var appVisible=_SHELL_IDS.some(function(sid){ var w=document.getElementById(sid); return w&&!isHidden(w); });
+          var dash=document.querySelector('[id*="dashboard"],[id*="main-app"],[id*="home-page"]');
+          if((dash&&!isHidden(dash))||appVisible){ _lv_authed=true; wireAll();return; }
+          /* Login handler didn't show the app — guard takes over */
+          var email=emailInput?emailInput.value.trim():'ok@ok.com';
+          var pass=passInput?passInput.value:'ok1234';
+          /* Detect visible errors (check both class*=error and id*=error) */
+          var hasErr=false;
+          document.querySelectorAll('[class*="error"],[id*="error"],[class*="alert"]').forEach(function(e){
+            if(!e.classList.contains('hidden')&&e.style.display!=='none'&&e.offsetParent&&e.textContent.trim().length>2) hasErr=true;
+          });
+          if(email.length>0&&pass.length>0&&!hasErr) forceNavigate('dashboard');
+        },400);
+      });
+    });
+
+    /* Broader login-screen selector — catches id="login-screen", "loginScreen", "signin-screen", etc. */
+    var loginEl = document.querySelector(
+      '[id*="page-login"],[id*="login-page"],[id="login"],[id="loginPage"],' +
+      '[id="login-screen"],[id="loginScreen"],[id="signin-screen"],[id="login-panel"],[id="auth-screen"],[id="auth-page"]'
+    );
+    if (loginEl) {
+      var obs = new MutationObserver(function() {
+        if (isHidden(loginEl) && !_lv_authed) {
+          _lv_authed = true;
+          obs.disconnect();
+          setTimeout(wireAll, 50);
+        }
+      });
+      obs.observe(loginEl, { attributes: true, attributeFilter: ['class','style'] });
+    }
+
+    wireAll();
+    initFirstPanel();
+    setTimeout(function(){ if (!_lv_authed) { wireAll(); initFirstPanel(); } }, 800);
+    setTimeout(function(){ wireAll(); }, 1500);
+  });
+})();
+</script><script id="lv-console-relay">
+(function(){
+  function send(level, args) {
+    try {
+      var msg = Array.from(args).map(function(a){
+        if (a === null) return 'null';
+        if (a === undefined) return 'undefined';
+        if (typeof a === 'object') { try { return JSON.stringify(a,null,2); } catch(e){ return String(a); } }
+        return String(a);
+      }).join(' ');
+      window.parent.postMessage({ __lv_console: true, level: level, msg: msg }, '*');
+    } catch(e){}
+  }
+  var _log = console.log.bind(console);
+  var _warn = console.warn.bind(console);
+  var _error = console.error.bind(console);
+  console.log   = function(){ _log.apply(console,arguments);   send('log',   arguments); };
+  console.warn  = function(){ _warn.apply(console,arguments);  send('warn',  arguments); };
+  console.error = function(){ _error.apply(console,arguments); send('error', arguments); };
+  window.onerror = function(msg, src, line, col, err) {
+    send('error', ['❌ ' + msg + (src?' ('+src+':'+line+')':'')]);
+    return false;
+  };
+  window.addEventListener('unhandledrejection', function(e){
+    send('error', ['❌ Unhandled promise rejection: ' + (e.reason || e)]);
+  });
+})();
+</script>
+
+<!-- NAVBAR -->
+<nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#fbfaf7]/85 border-b border-stone-200/60">
+  <div class="max-w-7xl mx-auto px-4 md:px-8 lg:px-12 py-4 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+        <path d="M4 20L16 4l12 16-12 6L4 20z" fill="#0f766e"/>
+        <circle cx="16" cy="16" r="3" fill="#fbfaf7"/>
+      </svg>
+      <span class="font-display text-xl text-stone-900">Wayfarer</span>
+    </a>
+    <div class="hidden md:flex items-center gap-9 text-sm font-medium text-stone-600">
+      <a href="#destinations" class="nav-link">Destinations</a>
+      <a href="#tours" class="nav-link">Tours</a>
+      <a href="#experiences" class="nav-link">Experiences</a>
+      <a href="#stories" class="nav-link">Stories</a>
+      <a href="#contact" class="nav-link">Contact</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="button" class="hidden md:block px-4 py-2 text-sm font-semibold text-stone-700 hover:text-stone-900">Sign in</button>
+      <button type="button" class="px-4 py-2 rounded-full text-sm font-semibold text-white accent-bg hover:opacity-90 transition-opacity">Plan a trip</button>
+      <button type="button" id="mobile-toggle" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-stone-700 hover:bg-stone-100">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="mobile-menu" class="hidden md:hidden border-t border-stone-200 bg-white px-6 py-4 space-y-3">
+    <a href="#destinations" class="block py-2 text-sm font-medium text-stone-700">Destinations</a>
+    <a href="#tours" class="block py-2 text-sm font-medium text-stone-700">Tours</a>
+    <a href="#experiences" class="block py-2 text-sm font-medium text-stone-700">Experiences</a>
+    <a href="#stories" class="block py-2 text-sm font-medium text-stone-700">Stories</a>
+    <a href="#contact" class="block py-2 text-sm font-medium text-stone-700">Contact</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero-bg pt-32 pb-20 md:pt-40 md:pb-28 px-4 md:px-8 lg:px-12">
+  <div class="max-w-7xl mx-auto grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+    <div class="lg:col-span-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-stone-200 mb-6">
+        <span class="w-1.5 h-1.5 rounded-full accent-bg"></span>
+        <span class="text-xs font-semibold text-stone-700 uppercase tracking-wider">Est. 2014 · Small groups, big places</span>
+      </div>
+      <h1 class="font-display text-5xl md:text-6xl lg:text-7xl leading-[1.05] text-stone-900 mb-6">
+        Travel slowly.<br>
+        <span class="accent-text italic">Feel deeply.</span>
+      </h1>
+      <p class="text-lg text-stone-600 max-w-md leading-relaxed mb-8">
+        Hand-crafted journeys to the places guidebooks miss — led by locals, paced for wonder, designed for people who'd rather wander than queue.
+      </p>
+      <div class="flex flex-wrap gap-3 mb-10">
+        <button type="button" class="px-6 py-3.5 rounded-full text-sm font-semibold text-white accent-bg hover:opacity-90 transition-opacity shadow-lg shadow-teal-900/10">Browse journeys</button>
+        <button type="button" class="px-6 py-3.5 rounded-full text-sm font-semibold text-stone-800 bg-white border border-stone-200 hover:border-stone-400 transition-colors">Watch film · 2:14</button>
+      </div>
+      <div class="flex items-center gap-6 pt-6 border-t border-stone-200">
+        <div><p class="font-display text-2xl text-stone-900">2,841</p><p class="text-xs text-stone-500 mt-0.5">Travellers hosted</p></div>
+        <div class="w-px h-10 bg-stone-200"></div>
+        <div><p class="font-display text-2xl text-stone-900">38</p><p class="text-xs text-stone-500 mt-0.5">Countries</p></div>
+        <div class="w-px h-10 bg-stone-200"></div>
+        <div><p class="font-display text-2xl text-stone-900">4.94</p><p class="text-xs text-stone-500 mt-0.5">Average rating</p></div>
+      </div>
+    </div>
+    <div class="lg:col-span-6 relative">
+      <div class="relative">
+        <img src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80&auto=format&fit=crop" alt="Hiker standing on a misty mountain ridge at sunrise" class="w-full h-[520px] object-cover rounded-3xl shadow-2xl shadow-stone-900/10" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+        <div class="absolute -bottom-6 -left-6 tour-badge rounded-2xl p-4 shadow-xl border border-stone-100 max-w-[230px]">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-9 h-9 rounded-full accent-bg flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2v20M2 12h20"/></svg>
+            </div>
+            <div><p class="text-xs text-stone-500">Next departure</p><p class="text-sm font-bold text-stone-900">Patagonia, 14 days</p></div>
+          </div>
+          <p class="text-xs text-stone-600">3 spots left · departs 18 March</p>
+        </div>
+        <div class="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-amber-100 border-4 border-white shadow-lg hidden md:flex items-center justify-center text-center -rotate-12">
+          <div><p class="text-[10px] font-bold text-amber-900 uppercase">Since</p><p class="font-display text-2xl text-amber-900">2014</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DESTINATIONS -->
+<section id="destinations" class="py-20 md:py-28 px-4 md:px-8 lg:px-12">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex items-end justify-between mb-12 flex-wrap gap-6">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-widest accent-text mb-3">Where we go</p>
+        <h2 class="font-display text-4xl md:text-5xl text-stone-900 max-w-xl">Six places we keep returning to</h2>
+      </div>
+      <a href="#" class="text-sm font-semibold text-stone-700 hover:text-stone-900 flex items-center gap-2">View all destinations
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <div class="card-hover group cursor-pointer">
+        <div class="relative h-80 rounded-3xl overflow-hidden mb-4">
+          <img src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&q=80&auto=format&fit=crop" alt="Eiffel Tower and rooftops of Paris at dusk" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+          <div class="absolute top-4 left-4 tour-badge px-3 py-1.5 rounded-full text-xs font-semibold text-stone-800">Western Europe</div>
+        </div>
+        <h3 class="font-display text-2xl text-stone-900 mb-1">Paris & the Loire</h3>
+        <p class="text-sm text-stone-600">Vineyard cycling, market mornings, and a quiet corner of Montmartre the tourists never find.</p>
+      </div>
+
+      <div class="card-hover group cursor-pointer">
+        <div class="relative h-80 rounded-3xl overflow-hidden mb-4">
+          <img src="https://images.unsplash.com/photo-1526772662000-3f88f10405ff?w=600&q=80&auto=format&fit=crop" alt="Tropical coastline with turquoise water and palm trees" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+          <div class="absolute top-4 left-4 tour-badge px-3 py-1.5 rounded-full text-xs font-semibold text-stone-800">Southeast Asia</div>
+        </div>
+        <h3 class="font-display text-2xl text-stone-900 mb-1">Vietnam coastline</h3>
+        <p class="text-sm text-stone-600">Hanoi street food, lantern-lit Hoi An, and a sleeper train through the central highlands.</p>
+      </div>
+
+      <div class="card-hover group cursor-pointer">
+        <div class="relative h-80 rounded-3xl overflow-hidden mb-4">
+          <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80&auto=format&fit=crop" alt="Snow-capped mountain peaks reflected in alpine lake" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+          <div class="absolute top-4 left-4 tour-badge px-3 py-1.5 rounded-full text-xs font-semibold text-stone-800">South America</div>
+        </div>
+        <h3 class="font-display text-2xl text-stone-900 mb-1">Patagonia expedition</h3>
+        <p class="text-sm text-stone-600">Fourteen days from El Chaltén to Torres del Paine, sleeping in refugios under glacial skies.</p>
+      </div>
+
+      <div class="card-hover group cursor-pointer">
+        <div class="relative h-80 rounded-3xl overflow-hidden mb-4">
+          <img src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=600&q=80&auto=format&fit=crop" alt="Snowy mountain lake at twilight in the Canadian Rockies" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+          <div class="absolute top-4 left-4 tour-badge px-3 py-1.5 rounded-full text-xs font-semibold text-stone-800">North America</div>
+        </div>
+        <h3 class="font-display text-2xl text-stone-900 mb-1">Canadian Rockies</h3>
+        <p class="text-sm text-stone-600">Banff to Jasper by rail, with two days of backcountry hiking most operators skip.</p>
+      </div>
+
+      <div class="card-hover group cursor-pointer">
+        <div class="relative h-80 rounded-3xl overflow-hidden mb-4">
+          <img src="https://images.unsplash.com/photo-1539020140153-e479b8c22e70?w=600&q=80&auto=format&fit=crop" alt="Ancient temple complex with carved stone stupas" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+          <div class="absolute top-4 left-4 tour-badge px-3 py-1.5 rounded-full text-xs font-semibold text-stone-800">South Asia</div>
+        </div>
+        <h3 class="font-display text-2xl text-stone-900 mb-1">Sri Lanka, the long way</h3>
+        <p class="text-sm text-stone-600">Sigiriya at sunrise, tea country trains, and a week on the south coast with a surf instructor.</p>
+      </div>
+
+      <div class="card-hover group cursor-pointer">
+        <div class="relative h-80 rounded-3xl overflow-hidden mb-4">
+          <img src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=600&q=80&auto=format&fit=crop" alt="Cliffside Mediterranean village with terracotta roofs at golden hour" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+          <div class="absolute top-4 left-4 tour-badge px-3 py-1.5 rounded-full text-xs font-semibold text-stone-800">Mediterranean</div>
+        </div>
+        <h3 class="font-display text-2xl text-stone-900 mb-1">Amalfi & beyond</h3>
+        <p class="text-sm text-stone-600">A coastal walk from Ravello to Positano, with long lunches and a private boat day to Capri.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FEATURED TOURS -->
+<section id="tours" class="py-20 md:py-28 px-4 md:px-8 lg:px-12 bg-stone-50">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-12">
+      <p class="text-xs font-bold uppercase tracking-widest accent-text mb-3">Departing soon</p>
+      <h2 class="font-display text-4xl md:text-5xl text-stone-900 max-w-2xl">Small-group journeys, departing this season</h2>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <div class="bg-white rounded-3xl p-6 md:p-8 flex flex-col md:flex-row gap-6 card-hover">
+        <img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&q=80&auto=format&fit=crop" alt="Lone tree on a windswept hillside under a dramatic sky" class="w-full md:w-48 h-48 md:h-auto object-cover rounded-2xl" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">3 spots left</span>
+            <span class="text-xs text-stone-500">14 days · moderate</span>
+          </div>
+          <h3 class="font-display text-2xl text-stone-900 mb-2">Iceland's Westfjords</h3>
+          <p class="text-sm text-stone-600 mb-5 leading-relaxed">A slower loop around Iceland's remote northwest — hot springs, basalt cliffs, and the loneliest swimming pool in Europe.</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-stone-500">From</p>
+              <p class="font-display text-xl text-stone-900">€4,280</p>
+            </div>
+            <button type="button" class="px-4 py-2 rounded-full text-sm font-semibold text-white accent-bg hover:opacity-90">View itinerary</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 md:p-8 flex flex-col md:flex-row gap-6 card-hover">
+        <img src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400&q=80&auto=format&fit=crop" alt="Campfire under starry sky with silhouetted mountains" class="w-full md:w-48 h-48 md:h-auto object-cover rounded-2xl" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold uppercase tracking-wider">6 spots left</span>
+            <span class="text-xs text-stone-500">11 days · relaxed</span>
+          </div>
+          <h3 class="font-display text-2xl text-stone-900 mb-2">Morocco, Atlas to coast</h3>
+          <p class="text-sm text-stone-600 mb-5 leading-relaxed">Marrakech medinas, two nights in a Berber village, and a slow drive to Essaouira with a surf lesson on arrival.</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-stone-500">From</p>
+              <p class="font-display text-xl text-stone-900">€3,150</p>
+            </div>
+            <button type="button" class="px-4 py-2 rounded-full text-sm font-semibold text-white accent-bg hover:opacity-90">View itinerary</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 md:p-8 flex flex-col md:flex-row gap-6 card-hover">
+        <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80&auto=format&fit=crop" alt="Long sandy beach with turquoise waves at sunrise" class="w-full md:w-48 h-48 md:h-auto object-cover rounded-2xl" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Last 2 spots</span>
+            <span class="text-xs text-stone-500">9 days · easy</span>
+          </div>
+          <h3 class="font-display text-2xl text-stone-900 mb-2">Lisbon & the Algarve</h3>
+          <p class="text-sm text-stone-600 mb-5 leading-relaxed">Pastéis in Alfama, a coastal drive through whitewashed villages, and three quiet days at a family-run beach house.</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-stone-500">From</p>
+              <p class="font-display text-xl text-stone-900">€2,890</p>
+            </div>
+            <button type="button" class="px-4 py-2 rounded-full text-sm font-semibold text-white accent-bg hover:opacity-90">View itinerary</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 md:p-8 flex flex-col md:flex-row gap-6 card-hover">
+        <img src="https://images.unsplash.com/photo-1518684079-3c830dcef090?w=400&q=80&auto=format&fit=crop" alt="Misty forest with a winding path through tall trees" class="w-full md:w-48 h-48 md:h-auto object-cover rounded-2xl" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 text-[10px] font-bold uppercase tracking-wider">New for 2025</span>
+            <span class="text-xs text-stone-500">10 days · moderate</span>
+          </div>
+          <h3 class="font-display text-2xl text-stone-900 mb-2">Kyoto & the Kumano Kodo</h3>
+          <p class="text-sm text-stone-600 mb-5 leading-relaxed">Five nights in Kyoto with a private tea ceremony, then a three-day walk on the ancient Kumano pilgrimage trail.</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs text-stone-500">From</p>
+              <p class="font-display text-xl text-stone-900">€3,640</p>
+            </div>
+            <button type="button" class="px-4 py-2 rounded-full text-sm font-semibold text-white accent-bg hover:opacity-90">View itinerary</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- WHY US / EXPERIENCES -->
+<section id="experiences" class="py-20 md:py-28 px-4 md:px-8 lg:px-12">
+  <div class="max-w-7xl mx-auto grid lg:grid-cols-12 gap-12">
+    <div class="lg:col-span-5">
+      <p class="text-xs font-bold uppercase tracking-widest accent-text mb-3">How we travel</p>
+      <h2 class="font-display text-4xl md:text-5xl text-stone-900 mb-6">Built for people who want the trip, not the itinerary</h2>
+      <p class="text-stone-600 leading-relaxed mb-8">We design every journey around what you'd actually want to remember in ten years — not the schedule of a sightseeing bus. Small groups (max 10), local guides, and enough free time to lose track of the afternoon.</p>
+
+      <div class="rounded-3xl overflow-hidden shadow-xl shadow-stone-900/10">
+        <img src="https://images.unsplash.com/photo-1522199710521-72d69614c702?w=800&q=80&auto=format&fit=crop" alt="Two friends laughing while eating street food at a night market" class="w-full h-72 object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20400%22%3E%3Crect%20width%3D%22600%22%20height%3D%22400%22%20fill%3D%22%23f3f4f6%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Inter%2Csystem-ui%2Csans-serif%22%20font-size%3D%2220%22%20fill%3D%22%239ca3af%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3Eimage%20unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';this.style.objectFit='cover';this.style.background='#f3f4f6';">
+      </div>
+    </div>
+
+    <div class="lg:col-span-7 grid sm:grid-cols-2 gap-5">
+      <div class="p-7 rounded-3xl border border-stone-200 bg-white">
+        <div class="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center mb-5">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2M16 3.13a4 4 0 010 7.75M22 21v-2a4 4 0 00-3-3.87"/></svg>
+        </div>
+        <h3 class="font-display text-xl text-stone-900 mb-2">Local guides only</h3>
+        <p class="text-sm text-stone-600 leading-relaxed">Every trip is led by someone who actually lives there — often a chef, a sailor, or a former park ranger.</p>
+      </div>
+      <div class="p-7 rounded-3xl border border-stone-200 bg-white">
+        <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mb-5">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3 class="font-display text-xl text-stone-900 mb-2">Small groups, max 10</h3>
+        <p class="text-sm text-stone-600 leading-relaxed">A minibus of 40 is not a journey. Our vans seat ten, our tables seat ten, our days move at ten-person pace.</p>
+      </div>
+      <div class="p-7 rounded-3xl border border-stone-200 bg-white">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-5">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2"><path d="M3 12c0-5 4-9 9-9s9 4 9 9-4 9-9 9"/><path d="M3 12h6l3-7 3 14 3-7h3"/></svg>
+        </div>
+        <h3 class="font-display text-xl text-stone-900 mb-2">Carbon-balanced</h3>
+        <p class="text-sm text-stone-600 leading-relaxed">Every booking offsets 2.4× its flights and contributes to verified local conservation projects.</p>
+      </div>
+      <div class="p-7 rounded-3xl border border-stone-200 bg-white">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mb-5">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#be123c" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </div>
+        <h3 class="font-display text-xl text-stone-900 mb-2">Independent stays</h3>
+        <p class="text-sm text-stone-600 leading-relaxed">Family-run riads, restored farmhouses, a night in a lighthouse. No two consecutive hotels look the same.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLANNING TOOL -->
+<section class="py-20 md:py-28 px-4 md:px-8 lg:px-12 bg-stone-900 text-stone-100">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-12">
+      <p class="text-xs font-bold uppercase tracking-widest text-teal-400 mb-3">Plan your trip</p>
+      <h2 class="font-display text-4xl md:text-5xl text-white mb-4">Tell us what you're after</h2>
+      <p class="text-stone-400 max-w-xl mx-auto">A short form, a real human response within 24 hours, and a draft itinerary in your inbox by the weekend.</p>
+    </div>
+    <div class="bg-stone-800/50 border border-stone-700 rounded-3xl p-6 md:p-10">
+      <div class="grid md:grid-cols-2 gap-5">
+        <div>
+          <label class="text-xs font-semibold text-stone-400 uppercase tracking-wide block mb-2">Where to?</label>
+          <input type="text" placeholder="Country, region, or 'surprise me'" class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-stone-500 border border-stone-700 bg-stone-900/60 focus:outline-none focus:border-teal-500 transition-colors">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-400 uppercase tracking-wide block mb-2">When?</label>
+          <input type="text" placeholder="e.g. mid-March, flexible" class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-stone-500 border border-stone-700 bg-stone-900/60 focus:outline-none focus:border-teal-500 transition-colors">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-400 uppercase tracking-wide block mb-2">How long?</label>
+          <input type="text" placeholder="7 – 14 nights" class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-stone-500 border border-stone-700 bg-stone-900/60 focus:outline-none focus:border-teal-500 transition-colors">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-400 uppercase tracking-wide block mb-2">Who's coming?</label>
+          <input type="text" placeholder="2 adults, no kids yet" class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-stone-500 border border-stone-700 bg-stone-900/60 focus:outline-none focus:border-teal-500 transition-colors">
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-xs font-semibold text-stone-400 uppercase tracking-wide block mb-2">A line about what you want from the trip</label>
+          <textarea rows="4" placeholder="Anniversary, food focus, somewhere quiet — anything helps." class="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-stone-500 border border-stone-700 bg-stone-900/60 focus:outline-none focus:border-teal-500 transition-colors resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex flex-col md:flex-row items-center justify-between mt-8 gap-4">
+        <p class="text-xs text-stone-500">No payment now. We'll send a draft, you decide.</p>
+        <button type="button" class="w-full md:w-auto px-7 py-3.5 rounded-full text-sm font-semibold text-stone-900 bg-teal-400 hover:bg-teal-300 transition-colors">Send to a trip designer →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS / STORIES -->
+<section id="stories" class="py-20 md:py-28 px-4 md:px-8 lg:px-12">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-12 text-center">
+      <p class="text-xs font-bold uppercase tracking-widest accent-text mb-3">From our travellers</p>
+      <h2 class="font-display text-4xl md:text-5xl text-stone-900">Notes from the road</h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="p-7 rounded-3xl bg-amber-50/60 border border-amber-100">
+        <div class="flex gap-0.5 mb-4">
+          <span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span>
+        </div>
+        <p class="text-stone-800 leading-relaxed mb-6">"We came home and realised we'd stopped reaching for our phones by day three. The Patagonia trip did that — the rhythm, the people, the silence between the days."</p>
+        <div class="flex items-center gap-3 pt-5 border-t border-amber-200/60">
+          <div class="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center text-amber-900 font-bold text-sm">EM</div>
+          <div><p class="text-sm font-semibold text-stone-900">Elena M.</p><p class="text-xs text-stone-600">Patagonia, October</p></div>
+        </div>
+      </div>
+      <div class="p-7 rounded-3xl bg-teal-50/60 border border-teal-100">
+        <div class="flex gap-0.5 mb-4">
+          <span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span>
+        </div>
+        <p class="text-stone-800 leading-relaxed mb-6">"I'd travelled Vietnam three times before and thought I knew it. Two dinners into Hoi An with our guide Linh I realised I knew nothing. Worth every cent."</p>
+        <div class="flex items-center gap-3 pt-5 border-t border-teal-200/60">
+          <div class="w-10 h-10 rounded-full bg-teal-200 flex items-center justify-center text-teal-900 font-bold text-sm">JT</div>
+          <div><p class="text-sm font-semibold text-stone-900">James T.</p><p class="text-xs text-stone-600">Vietnam, February</p></div>
+        </div>
+      </div>
+      <div class="p-7 rounded-3xl bg-rose-50/60 border border-rose-100">
+        <div class="flex gap-0.5 mb-4">
+          <span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span><span class="text-amber-500">★</span>
+        </div>
+        <p class="text-stone-800 leading-relaxed mb-6">"The Morocco trip was our honeymoon and somehow felt nothing like a honeymoon package. Quiet, generous, a little wild. We cried at the airport."</p>
+        <div class="flex items-center gap-3 pt-5 border-t border-rose-200/60">
+          <div class="w-10 h-10 rounded-full bg-rose-200 flex items-center justify-center text-rose-900 font-bold text-sm">SP</div>
+          <div><p class="text-sm font-semibold text-stone-900">Sana & Pavel R.</p><p class="text-xs text-stone-600">Morocco, May</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT / FOOTER -->
+<section id="contact" class="px-4 md:px-8 lg:px-12 pb-12">
+  <div class="max-w-7xl mx-auto bg-stone-100 rounded-3xl p-8 md:p-14 grid md:grid-cols-2 gap-10 items-center">
+    <div>
+      <h3 class="font-display text-3xl md:text-4xl text-stone-900 mb-3">Still thinking about it?</h3>
+      <p class="text-stone-600 mb-6 max-w-md">Send us a postcard, a question, or a half-baked idea. We'd rather over-chat than miss you.</p>
+      <div class="space-y-3 text-sm text-stone-700">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <span>14 Bartholomew Lane, London EC2N 2AT</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+          </div>
+          <span>hello@wayfarer.travel</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.37 1.9.72 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0122 16.92z"/></svg>
+          </div>
+          <span>+44 20 7946 0817 · Mon–Fri, 9–6 GMT</span>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-6 border border-stone-200">
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-stone-600 uppercase tracking-wide block mb-1.5">Your name</label>
+          <input type="text" placeholder="Full name" class="w-full px-4 py-3 rounded-xl text-sm border border-stone-200 focus:outline-none focus:border-teal-600 transition-colors">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-600 uppercase tracking-wide block mb-1.5">Email</label>
+          <input type="email" placeholder="you@email.com" class="w-full px-4 py-3 rounded-xl text-sm border border-stone-200 focus:outline-none focus:border-teal-600 transition-colors">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-stone-600 uppercase tracking-wide block mb-1.5">Message</label>
+          <textarea rows="3" placeholder="A few lines about what you have in mind…" class="w-full px-4 py-3 rounded-xl text-sm border border-stone-200 focus:outline-none focus:border-teal-600 transition-colors resize-none"></textarea>
+        </div>
+        <button type="button" class="w-full py-3 rounded-xl font-semibold text-white text-sm accent-bg hover:opacity-90 transition-opacity">Send message</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="px-4 md:px-8 lg:px-12 py-10 border-t border-stone-200">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+    <div class="flex items-center gap-2">
+      <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+        <path d="M4 20L16 4l12 16-12 6L4 20z" fill="#0f766e"/>
+        <circle cx="16" cy="16" r="3" fill="#fbfaf7"/>
+      </svg>
+      <span class="font-display text-stone-900">Wayfarer</span>
+      <span class="text-xs text-stone-500 ml-2">© 2025 · Member, ATTA</span>
+    </div>
+    <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-stone-600">
+      <a href="#" class="hover:text-stone-900">Privacy</a>
+      <a href="#" class="hover:text-stone-900">Terms</a>
+      <a href="#" class="hover:text-stone-900">Sustainability</a>
+      <a href="#" class="hover:text-stone-900">Press</a>
+      <a href="#" class="hover:text-stone-900">Careers</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+document.getElementById('mobile-toggle').addEventListener('click', function() {
+  var menu = document.getElementById('mobile-menu');
+  menu.classList.toggle('hidden');
+});
+document.querySelectorAll('#mobile-menu a').forEach(function(link) {
+  link.addEventListener('click', function() {
+    document.getElementById('mobile-menu').classList.add('hidden');
+  });
+});
+</script>
+
+</body>
+</html>
